@@ -29,11 +29,11 @@ const safaricomOnly = (req, res, next) => {
 
   // Additional check: verify request has valid callback secret in header
   const callbackToken = req.headers['x-callback-secret'];
-  const hasValidSecret = callbackToken && 
-    crypto.timingSafeEqual(
-      Buffer.from(callbackToken), 
-      Buffer.from(CALLBACK_SECRET)
-    );
+  const secretBuf = Buffer.from(CALLBACK_SECRET);
+  const tokenBuf = callbackToken ? Buffer.from(callbackToken) : null;
+  const hasValidSecret = tokenBuf !== null &&
+    tokenBuf.length === secretBuf.length &&
+    crypto.timingSafeEqual(tokenBuf, secretBuf);
 
   if (!isSafaricom && !hasValidSecret) {
     logger.warn('Blocked callback attempt', { 

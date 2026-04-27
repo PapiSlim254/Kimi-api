@@ -9,7 +9,7 @@ RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 COPY prisma ./prisma/
 
-RUN npm ci --only=production
+RUN npm ci --only=production && npx prisma generate
 
 # ─── Stage 2: Production Image ───────────────────────────────────────────────
 FROM node:20-alpine AS runner
@@ -35,5 +35,8 @@ USER bodamoja
 
 EXPOSE 3000
 
-# Run migrations then start server
-CMD ["sh", "-c", "npx prisma migrate deploy && node src/index.js"]
+# Entrypoint handles migrations + first-run seed
+COPY scripts/entrypoint.sh ./scripts/entrypoint.sh
+RUN chmod +x scripts/entrypoint.sh
+
+CMD ["scripts/entrypoint.sh"]

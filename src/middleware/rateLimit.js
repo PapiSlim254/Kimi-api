@@ -1,5 +1,14 @@
 const rateLimit = require('express-rate-limit');
+const { RedisStore } = require('rate-limit-redis');
+const redis = require('../lib/redis');
 const { error } = require('../lib/response');
+
+// Shared Redis store — limits survive restarts and work across multiple containers
+const makeStore = (prefix) =>
+  new RedisStore({
+    sendCommand: (...args) => redis.call(...args),
+    prefix,
+  });
 
 // Global rate limiter - 100 requests per minute per IP
 const globalLimiter = rateLimit({
@@ -7,6 +16,7 @@ const globalLimiter = rateLimit({
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
+  store: makeStore('rl:global:'),
   handler: (req, res) => {
     return error(res, 'RATE_LIMITED', 'Too many requests, please slow down', 429);
   },
@@ -18,6 +28,7 @@ const loginLimiter = rateLimit({
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  store: makeStore('rl:login:'),
   handler: (req, res) => {
     return error(res, 'TOO_MANY_ATTEMPTS', 'Too many login attempts. Please try again in 15 minutes.', 429);
   },
@@ -29,6 +40,7 @@ const strictLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
+  store: makeStore('rl:strict:'),
   handler: (req, res) => {
     return error(res, 'RATE_LIMITED', 'Too many requests for this operation', 429);
   },
