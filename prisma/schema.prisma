@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RideStatus {
+  requested
+  accepted
+  driver_arriving
+  in_progress
+  completed
+  cancelled
+}
+
+enum PaymentStatus {
+  pending
+  completed
+  failed
+  refunded
+  flagged
+}
+
+model Sacco {
+  id        String   @id @default(uuid())
+  name      String
+  zone      String?
+  chairman  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  drivers Driver[]
+
+  @@map("saccos")
+}
+
+model User {
+  id        String    @id @default(uuid())
+  phone     String    @unique
+  name      String
+  password  String
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  ridesAsRider  Ride[]      @relation("RiderRides")
+  paymentsAsRider Payment[] @relation("RiderPayments")
+
+  @@map("users")
+}
+
+model Driver {
+  id            String   @id @default(uuid())
+  phone         String   @unique
+  name          String
+  password      String
+  idNumber      String   @unique @map("id_number")
+  licenseNumber String   @unique @map("license_number")
+  saccoId       String?  @map("sacco_id")
+  ratingAvg     Decimal  @default(5.00) @db.Decimal(3, 2) @map("rating_avg")
+  isOnline      Boolean  @default(false) @map("is_online")
+  isVerified    Boolean  @default(false) @map("is_verified")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  sacco    Sacco?          @relation(fields: [saccoId], references: [id])
+  rides    Ride[]          @relation("DriverRides")
+  payments Payment[]       @relation("DriverPayments")
+  location DriverLocation?
+
+  @@map("drivers")
+}
+
+model Ride {
+  id             String     @id @default(uuid())
+  riderId        String     @map("rider_id")
+  driverId       String?    @map("driver_id")
+  status         RideStatus @default(requested)
+  pickupLat      Decimal    @map("pickup_lat") @db.Decimal(10, 8)
+  pickupLng      Decimal    @map("pickup_lng") @db.Decimal(11, 8)
+  pickupAddress  String?    @map("pickup_address")
+  dropoffLat     Decimal    @map("dropoff_lat") @db.Decimal(10, 8)
+  dropoffLng     Decimal    @map("dropoff_lng") @db.Decimal(11, 8)
+  dropoffAddress String?    @map("dropoff_address")
+  distanceKm     Decimal?   @map("distance_km") @db.Decimal(6, 2)
+  fareAmount     Int?       @map("fare_amount")
+  requestedAt    DateTime   @default(now()) @map("requested_at")
+  acceptedAt     DateTime?  @map("accepted_at")
+  startedAt      DateTime?  @map("started_at")
+  completedAt    DateTime?  @map("completed_at")
+  cancelledAt    DateTime?  @map("cancelled_at")
+  cancelReason   String?    @map("cancel_reason")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  rider   User      @relation("RiderRides", fields: [riderId], references: [id])
+  driver  Driver?   @relation("DriverRides", fields: [driverId], references: [id])
+  payment Payment?
+  ratings Rating[]
+
+  @@index([riderId])
+  @@index([driverId])
+  @@index([status])
+  @@index([requestedAt])
+  @@map("rides")
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  rideId        String        @unique @map("ride_id")
+  riderId       String        @map("rider_id")
+  driverId      String        @map("driver_id")
+  amount        Int
+  mpesaRef      String?       @unique @map("mpesa_ref")
+  checkoutReqId String?       @unique @map("checkout_req_id")
+  status        PaymentStatus @default(pending)
+  initiatedAt   DateTime      @default(now()) @map("initiated_at")
+  confirmedAt   DateTime?     @map("confirmed_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  ride   Ride   @relation(fields: [rideId], references: [id])
+  rider  User   @relation("RiderPayments", fields: [riderId], references: [id])
+  driver Driver @relation("DriverPayments", fields: [driverId], references: [id])
+
+  @@index([status])
+  @@index([initiatedAt])
+  @@map("payments")
+}
+
+model Rating {
+  id        String   @id @default(uuid())
+  rideId    String   @map("ride_id")
+  raterId   String   @map("rater_id")
+  ratedId   String   @map("rated_id")
+  score     Int
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ride  Ride @relation(fields: [rideId], references: [id])
+
+  @@index([rideId])
+  @@index([ratedId])
+  @@map("ratings")
+}
+
+model DriverLocation {
+  driverId  String   @id @map("driver_id")
+  lat       Decimal  @db.Decimal(10, 8)
+  lng       Decimal  @db.Decimal(11, 8)
+  updatedAt DateTime @default(now()) @map("updated_at")
+
+  driver Driver @relation(fields: [driverId], references: [id])
+
+  @@index([lat, lng])
+  @@map("driver_locations")
+}
