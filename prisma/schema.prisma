@@ -71,6 +71,8 @@ model Driver {
   rides    Ride[]          @relation("DriverRides")
   payments Payment[]       @relation("DriverPayments")
   location DriverLocation?
+  vehicles        Vehicle[]
+  documents       DriverDocument[]
 
   @@map("drivers")
 }
